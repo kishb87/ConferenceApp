@@ -7,14 +7,16 @@ Nanodegree.
 
 This is a python based project that utilizes Google App Engine to create APIs that are accessible from a web-based conference organization app.
 
+The conference application can be accessed [here](https://udacityconferenceapp-1987.appspot.com/). The APIs for the application can be accessed through the [API explorer](https://udacityconferenceapp-1987.appspot.com/_ah/api/explorer)
+
 ### Setting Up
-1. Create an application in Google App Engine (http://console.developers.google.com)
+1. Create an application in [Google App Engine](http://console.developers.google.com)
 2. Rename the application in app.yaml to application you created in App Engine
 3. Update the client ID in settings.py
 4. Update the client ID in static/js/app.js
 
 ### Using Google App Engine Launcher
-1. Download Google App Engine SDK for Python (https://cloud.google.com/appengine/downloads?hl=en)
+1. Download [Google App Engine SDK for Python](https://cloud.google.com/appengine/downloads?hl=en)
 2. Load the Google App Engine Launcher
 3. Go to File --> Add Existing Application
 4. Set directory to the location of this application
