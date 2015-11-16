@@ -28,6 +28,17 @@ To access APIs, visit: https://{your-app-id}.appspot.com/_ah/api/explorer
 
 ##### Notes Regarding Project Requirements
 
+Task 1: Add Sessions to Conference
+
+This task requires that the application supports the ability to add sessions to conferences. The following endpoints were created in order to allow this.
+	
+	* getConferenceSessions(websafeConferenceKey) -- Given a conference, return all sessions
+	* getConferenceSessionsByType(websafeConferenceKey, typeOfSession) Given a conference, return all sessions of a specified type (eg lecture, keynote, workshop)
+	* getSessionsBySpeaker(speaker) -- Given a speaker, return all sessions given by this particular speaker, across all conferences
+	* createSession(SessionForm, websafeConferenceKey) -- open to the organizer of the conference
+
+For the Session class, I used primarily StringFields in the data model in order to allow for unicode string values. This serves useful for name of the session, highlights, speaker name, the type of session, and the conference key. I used the integer property for the duration of the session and the time property for the start of the session. Only the speaker name is required. The SessionForm class is modeled identically and this is used for the outbound form message.
+
 Task 3: Solve the following query related problem
 
 Question: Let’s say that you don't like workshops and you don't like sessions after 7 pm. How would you handle a query for all non-workshop sessions before 7 pm? What is the problem for implementing this query? What ways to solve it did you think of?
