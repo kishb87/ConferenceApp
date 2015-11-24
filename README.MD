@@ -34,10 +34,10 @@ To access APIs, visit: https://{your-app-id}.appspot.com/_ah/api/explorer
 
 This task requires that the application supports the ability to add sessions to conferences. The following endpoints were created in order to allow this:
 	
-	* getConferenceSessions(websafeConferenceKey) -- Given a conference, return all sessions
-	* getConferenceSessionsByType(websafeConferenceKey, typeOfSession) Given a conference,return all sessions of a specified type (eg lecture, keynote, workshop)
-	* getSessionsBySpeaker(speaker) -- Given a speaker, return all sessions given by this particular speaker, across all conferences
-	* createSession(SessionForm, websafeConferenceKey) -- open to the organizer of the conference
+* getConferenceSessions(websafeConferenceKey) -- Given a conference, return all sessions
+* getConferenceSessionsByType(websafeConferenceKey, typeOfSession) Given a conference,return all sessions of a specified type (eg lecture, keynote, workshop)
+* getSessionsBySpeaker(speaker) -- Given a speaker, return all sessions given by this particular speaker, across all conferences
+* createSession(SessionForm, websafeConferenceKey) -- open to the organizer of the conference
 
 For the Session class, I used primarily StringFields in the data model in order to allow for unicode string values. This serves useful for name of the session, highlights, speaker name, the type of session, and the conference key. I used the integer property for the duration of the session and the time property for the start of the session. Only the speaker name is required. The SessionForm class is modeled identically and this is used for the outbound form message.
 
@@ -45,9 +45,9 @@ For the Session class, I used primarily StringFields in the data model in order 
 
 I added the following endpoints to the application:
 
-	* getSmallConferences -- This brings back all conferences with max attendees of 50 or less. I found that this would be useful because some people prefer to go to smaller conferences because it's easier to interact and make meaningful relationships with other participants.
+* getSmallConferences -- This brings back all conferences with max attendees of 50 or less. I found that this would be useful because some people prefer to go to smaller conferences because it's easier to interact and make meaningful relationships with other participants.
 
-	* getSessionsByHighlights -- This endpoint brings back all sessions across all conferences based on a specified highlight. If someone was interested in a particular topic such as "machine learning", they could search for sessions with that topic as a highlight and then determine if they want to go to the conference that hosts that session.
+* getSessionsByHighlights -- This endpoint brings back all sessions across all conferences based on a specified highlight. If someone was interested in a particular topic such as "machine learning", they could search for sessions with that topic as a highlight and then determine if they want to go to the conference that hosts that session.
 
 #### Task 3: Solve the following query related problem
 
