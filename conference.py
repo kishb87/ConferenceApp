@@ -79,8 +79,13 @@ SESSION_GET_BY_SPEAKER_REQUEST = endpoints.ResourceContainer(
 
 )
 
+SESSION_GET_BY_HIGHLIGHTS_REQUEST = endpoints.ResourceContainer(
+    message_types.VoidMessage,
+    highlights=messages.StringField(1),
 
-SEESION_REQUEST = endpoints.ResourceContainer(
+)
+
+SESSION_REQUEST = endpoints.ResourceContainer(
     message_types.VoidMessage,
     sessionKey=messages.StringField(1),
 )
@@ -370,6 +375,42 @@ class ConferenceApi(remote.Service):
                    conferences]
         )
 
+    @endpoints.method(message_types.VoidMessage, ConferenceForms,
+                      path='filterPlayground',
+                      http_method='GET',
+                      name='filterPlayground')
+    def filterPlayground(self, request):
+        """Query for conferences filter by city."""
+        q = Conference.query()
+        field = "city"
+        operator = "="
+        value = "London"
+        # Uses FilterNode method
+        f = ndb.query.FilterNode(field, operator, value)
+        q = q.filter(f)
+        # return individual ConferenceForm object per Conference
+        return ConferenceForms(
+            items=[self._copyConferenceToForm(conf, "") for conf in q]
+        )
+
+    @endpoints.method(message_types.VoidMessage, ConferenceForms,
+                      path='getSmallConferences',
+                      http_method='GET',
+                      name='getSmallConferences')
+    def getSmallConferences(self, request):
+        """Query for conferences filter by max attendees of 50 or fewer."""
+        q = Conference.query()
+        field = "maxAttendees"
+        operator = "<"
+        value = 51
+        # Uses FilterNode method
+        f = ndb.query.FilterNode(field, operator, value)
+        q = q.filter(f)
+        # return individual ConferenceForm object per Conference
+        return ConferenceForms(
+            items=[self._copyConferenceToForm(conf, "") for conf in q]
+        )
+
     @endpoints.method(ConferenceForm, ConferenceForm, path='conference',
                       http_method='POST', name='createConference')
     def createConference(self, request):
@@ -409,7 +450,7 @@ class ConferenceApi(remote.Service):
                       path='conference/{websafeConferenceKey}/sessions',
                       http_method='GET', name='getConferenceSessions')
     def getConferenceSessions(self, request):
-        """Given a conference, returns all sessions."""
+        """Returns all sessions within a given conference."""
         # Get the conference key
         web_conf_key = request.websafeConferenceKey
         # Get the conference with the given target key
@@ -428,7 +469,7 @@ class ConferenceApi(remote.Service):
                       path='conference/{websafeConferenceKey}/sessions/{typeOfSession}',
                       http_method='GET', name='getConferenceSessionsByType')
     def getConferenceSessionsByType(self, request):
-        """Given a conference, return all sessions of a specified type (eg lecture, keynote, workshop)."""
+        """Given a conference, return all sessions of a specified type (e.g. lecture, keynote, workshop)."""
         # get the conference key
         web_conf_key = request.websafeConferenceKey
         # get the type pf session we want
@@ -457,19 +498,16 @@ class ConferenceApi(remote.Service):
         # return set of SessionForm objects
         return SessionForms(items=[self._copySessionToForm(session) for session in sessions])
 
-    @endpoints.method(CONF_GET_REQUEST, ProfileForms,
-                      path='/getAttendeeByConference/{websafeConferenceKey}',
-                      http_method='GET', name='getAttendeeByConference')
-    def getAttendeeByConference(self, request):
-        """Given a speaker, return all sessions given by this particular speaker, across all conferences."""
-        web_conf_key = request.websafeConferenceKey
-        profiles = Profile.query()
-        attendees = []
-        for pro in profiles:
-            if web_conf_key in pro.conferenceKeysToAttend:
-                attendees.append(pro)
+    @endpoints.method(SESSION_GET_BY_HIGHLIGHTS_REQUEST, SessionForms,
+                      path='/sessions/{highlights}',
+                      http_method='GET', name='getSessionsByHighlights')
+    def getSessionsByHighlights(self, request):
+        """Given a specified highlight, return all sessions with this specific highlight, across all conferences."""
+        sessions = Session.query()
+        sessions = sessions.filter(Session.highlights == request.highlights)
         # return set of SessionForm objects
-        return ProfileForms(items=[self._copyProfileToForm(attendee) for attendee in attendees])
+        return SessionForms(items=[self._copySessionToForm(session) for session in sessions])
+
 
     @endpoints.method(message_types.VoidMessage, ConferenceForms,
                       path='conferences/attending',
@@ -520,9 +558,11 @@ class ConferenceApi(remote.Service):
         for field in session_objects.all_fields():
             if hasattr(session, field.name):
                 if field.name.endswith('date') or field.name.endswith('startTime'):
-                    setattr(session_objects, field.name, str(getattr(session, field.name)))
+                    setattr(session_objects, field.name,
+                            str(getattr(session, field.name)))
                 else:
-                    setattr(session_objects, field.name, getattr(session, field.name))
+                    setattr(session_objects, field.name,
+                            getattr(session, field.name))
             elif field.name == "sessionSafeKey":
                 setattr(session_objects, field.name, session.key.urlsafe())
         session_objects.check_initialized()
@@ -581,7 +621,7 @@ class ConferenceApi(remote.Service):
                       )
         return request
 
-    @endpoints.method(SEESION_REQUEST, SessionForm,
+    @endpoints.method(SESSION_REQUEST, SessionForm,
                       path="addSessionToWishlist",
                       http_method="POST", name='addSessionToWishlist')
     def addSessionToWishlist(self, request):
@@ -683,7 +723,8 @@ class ConferenceApi(remote.Service):
                 ', '.join(conf.name for conf in confs))
             memcache.set(MEMCACHE_ANNOUNCEMENTsession_key, announcement)
         else:
-            # Delete the memcache announcements entry when conference is not sold out
+            # Delete the memcache announcements entry when conference is not
+            # sold out
             announcement = ""
             memcache.delete(MEMCACHE_ANNOUNCEMENTsession_key)
 
