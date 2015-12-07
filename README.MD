@@ -14,8 +14,17 @@ The conference application can be accessed [here](https://udacityconferenceapp-1
 ### Create an application in Google Developer Console
 1. Create an application in [Google App Engine](http://console.developers.google.com)
 2. Rename the application in app.yaml to application you created in App Engine
-3. Update the client ID in settings.py
-4. Update the client ID in static/js/app.js
+
+### Create client ID in API Manager
+1. Go to API Manager in the Google Developers Console
+2. Click on Credentials
+3. Click on the Add Credentials dropdown
+4. Click on OAuth 2.0 client ID
+5. Select Web Application as the Application type
+6. Name the client ID and click create
+7. Copy the client ID
+8. Update the client ID in settings.py
+9. Update the client ID in static/js/app.js
 
 ### Using Google App Engine Launcher
 1. Download [Google App Engine SDK for Python](https://cloud.google.com/appengine/downloads?hl=en)
