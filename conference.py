@@ -14,6 +14,7 @@ __author__ = 'wesc+api@google.com (Wesley Chun)'
 
 
 from datetime import datetime
+from datetime import date
 import json
 import os
 import time
@@ -90,8 +91,14 @@ SESSION_REQUEST = endpoints.ResourceContainer(
     sessionKey=messages.StringField(1),
 )
 
+SESSION_POST_REQUEST = endpoints.ResourceContainer(
+    SessionForm,
+    websafeConferenceKey=messages.StringField(1)
+)
+
 MEMCACHE_ANNOUNCEMENTsession_key = "RECENT_ANNOUNCEMENTS"
-MEMCACHE_FEATURED_SPEAKER_KEY = "FEATURED_SPEAKER"
+MEMCACHE_FEATURED_SPEAKER_KEY = "featured_speaker_"
+
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 
@@ -439,8 +446,8 @@ class ConferenceApi(remote.Service):
         """Register user for selected conference."""
         return self._conferenceRegistration(request)
 
-    @endpoints.method(SessionForm, SessionForm,
-                      path='createSession',
+    @endpoints.method(SESSION_POST_REQUEST, SessionForm,
+                      path='conference/{websafeConferenceKey}/newSession',
                       http_method='POST', name='createSession')
     def createSession(self, request):
         """Create a session in a given conference; open only to the organizer of this conference."""
@@ -460,9 +467,17 @@ class ConferenceApi(remote.Service):
             raise endpoints.NotFoundException(
                 'No conference found with key: %s' % web_conf_key)
         # Create ancestor query
+        sessions = Session.query(ancestor=conf.key)
+        return SessionForms(items=[self._copySessionToForm(session) for session in sessions])
+
+    @endpoints.method(SESSION_GET_BY_HIGHLIGHTS_REQUEST, SessionForms,
+                      path='/sessions/highlights/{highlights}',
+                      http_method='GET', name='getSessionsByHighlights')
+    def getSessionsByHighlights(self, request):
+        """Given a specified highlight, return all sessions with this specific highlight, across all conferences."""
         sessions = Session.query()
-        Sessions = sessions.filter(
-            Session.websafeConferenceKey == web_conf_key)
+        sessions = sessions.filter(Session.highlights == request.highlights)
+        # return set of SessionForm objects
         return SessionForms(items=[self._copySessionToForm(session) for session in sessions])
 
     @endpoints.method(SESSION_GET_REQUEST, SessionForms,
@@ -489,7 +504,7 @@ class ConferenceApi(remote.Service):
         return SessionForms(items=[self._copySessionToForm(session) for session in sessions])
 
     @endpoints.method(SESSION_GET_BY_SPEAKER_REQUEST, SessionForms,
-                      path='/sessions/{speaker}',
+                      path='/sessions/speaker/{speaker}',
                       http_method='GET', name='getSessionsBySpeaker')
     def getSessionsBySpeaker(self, request):
         """Given a speaker, return all sessions given by this particular speaker, across all conferences."""
@@ -497,17 +512,6 @@ class ConferenceApi(remote.Service):
         sessions = sessions.filter(Session.speaker == request.speaker)
         # return set of SessionForm objects
         return SessionForms(items=[self._copySessionToForm(session) for session in sessions])
-
-    @endpoints.method(SESSION_GET_BY_HIGHLIGHTS_REQUEST, SessionForms,
-                      path='/sessions/{highlights}',
-                      http_method='GET', name='getSessionsByHighlights')
-    def getSessionsByHighlights(self, request):
-        """Given a specified highlight, return all sessions with this specific highlight, across all conferences."""
-        sessions = Session.query()
-        sessions = sessions.filter(Session.highlights == request.highlights)
-        # return set of SessionForm objects
-        return SessionForms(items=[self._copySessionToForm(session) for session in sessions])
-
 
     @endpoints.method(message_types.VoidMessage, ConferenceForms,
                       path='conferences/attending',
@@ -565,6 +569,8 @@ class ConferenceApi(remote.Service):
                             getattr(session, field.name))
             elif field.name == "sessionSafeKey":
                 setattr(session_objects, field.name, session.key.urlsafe())
+            elif field.name == "websafeConferenceKey":
+                setattr(sf, field.name, session.key.parent().urlsafe())
         session_objects.check_initialized()
         return session_objects
 
@@ -611,15 +617,19 @@ class ConferenceApi(remote.Service):
         data['key'] = session_key
         data['websafeConferenceKey'] = web_conf_key
         del data['sessionSafeKey']
+        del data['websafeConferenceKey']
 
         # Save session into database
         Session(**data).put()
-        # Taskque to send a confirmation email to the creator
-        taskqueue.add(params={'email': user.email(),
-                              'conferenceInfo': repr(request)},
-                      url='/tasks/send_confirmation_session_email'
-                      )
-        return request
+        # Taskque for featuredSpeaker endpoint
+        # check for featured speaker in conference:
+        taskqueue.add(params={'speaker': data['speaker'],
+                              'wsck': web_conf_key
+                              },
+                      url='/tasks/check_featured_speaker')
+
+        session = session_key.get()
+        return self._copySessionToForm(session)
 
     @endpoints.method(SESSION_REQUEST, SessionForm,
                       path="addSessionToWishlist",
@@ -674,35 +684,31 @@ class ConferenceApi(remote.Service):
         return SessionForms(items=[self._copySessionToForm(session) for session in sessions])
 
 # - - - Featured Speaker - - - - - - - - - - - - - - - - -
-    @staticmethod
-    def _cacheFeaturedSpeaker():
-        """Get Featured Speaker & assign to memcache;"""
-        sessions = Session.query()
-        speakersCounter = {}
-        featured_speaker = ""
-        num = 0
-        for session in sessions:
-            if session.speaker:
-                if session.speaker not in speakersCounter:
-                    speakersCounter[session.speaker] = 1
-                else:
-                    speakersCounter[session.speaker] += 1
-                if speakersCounter[session.speaker] > num:
-                    featured_speaker = session.speaker
-                    num = speakersCounter[session.speaker]
-        memcache.set(MEMCACHE_FEATURED_SPEAKER_KEY, featured_speaker)
-        return featured_speaker
-
-    @endpoints.method(message_types.VoidMessage, StringMessage,
-                      path='speaker/get_features',
-                      http_method='GET', name='getFeaturedSpeaker')
+    @endpoints.method(CONF_GET_REQUEST, StringMessage,
+                      path='featuredSpeaker',
+                      http_method='GET',
+                      name='getFeaturedSpeaker')
     def getFeaturedSpeaker(self, request):
-        """Get all featured speakers"""
-        featured_speaker = memcache.get(MEMCACHE_FEATURED_SPEAKER_KEY)
-        if not featured_speaker:
-            featured_speaker = ""
-        # return json data
-        return StringMessage(data=json.dumps(featured_speaker))
+        """Returns featured speaker and the sessions he's partaking in from
+        memcache"""
+
+        # get conference; check that it exists
+        wsck = request.websafeConferenceKey
+        conf = ndb.Key(urlsafe=wsck).get()
+        if not conf:
+            raise endpoints.NotFoundException(
+                'No conference found with key: %s' % wsck)
+
+        # create memcache key based on conf key:
+        memcache_key_ = MEMCACHE_FEATURED_SPEAKER_KEY + str(wsck)
+
+        # try to find entry in memcache:
+        output_ = memcache.get(memcache_key_)
+        if output_:
+            return StringMessage(data=memcache.get(memcache_key_))
+        else:
+            return StringMessage(
+                data="There are no featured speakers for this conference.")
 
 
 # - - - Annoucement - - - - - - - - - - - - - - - - -

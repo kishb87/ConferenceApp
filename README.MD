@@ -58,5 +58,4 @@ Answer: This is a question with two properties that need to be filtered. This is
 
 #### Task 4: Featured Speaker
 
-In regards to Task 4, I created a chron job for the scheduled task. It will check for the featured
-speaker once every hour.
+In regards to Task 4, I created a taskqueue in the _createSessionObject function. When a new session is created, a taskqueue with parameters including the speaker name and websafeConferenceKey is created. The handler for this task queue is called CheckFeaturedSpeakerHandler and is located in main.py. It queries for all sessions in the same conference of the newly created session. It then looks for other sessions with the speaker's name. If it finds one, the speaker become the new featured speaker and is added to memecache. The featured speaker's name and sessions he/she will be speaking at can then be seen using the getFeaturedSpeaker() endpoint.
