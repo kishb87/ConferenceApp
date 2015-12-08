@@ -667,6 +667,41 @@ class ConferenceApi(remote.Service):
                     'Error in storing the wishlist')
         return self._copySessionToForm(session)
 
+    @endpoints.method(SESSION_REQUEST, BooleanMessage,
+                      path="deleteSessionInWishlist",
+                      http_method='DELETE', name='deleteSessionInWishlist')
+    def deleteSessionInWishlist(self, request):
+        """Delete session in user's wishlist"""
+        # Get the session key
+        sessionKey = request.sessionKey
+        # Get the session object
+        session = ndb.Key(urlsafe=sessionKey).get()
+        # Check that session exists or not
+        if not session:
+            raise endpoints.NotFoundException(
+                'No session found with key: %s' % sessionKey)
+        user = endpoints.get_current_user()
+        if not user:
+            raise endpoints.UnauthorizedException('Authorization required')
+        # Get profile
+        profile = self._getProfileFromUser()
+        if not profile:
+            raise endpoints.BadRequestException(
+                'Profile does not exist for user')
+        # Check if key and Session match
+        if not type(ndb.Key(urlsafe=sessionKey).get()) == Session:
+            raise endpoints.NotFoundException(
+                'This key is not a Session instance')
+        # Delete session from wishlist
+        if sessionKey in profile.sessionKeysInWishlist:
+            try:
+                profile.sessionKeysInWishlist.remove(sessionKey)
+                profile.put()
+            except Exception:
+                raise endpoints.InternalServerErrorException(
+                    'Error in storing the wishlist')
+        return BooleanMessage(data=True)
+
     @endpoints.method(message_types.VoidMessage, SessionForms,
                       path='getSessionsInWishlist', http_method='GET',
                       name='getSessionsInWishlist')
