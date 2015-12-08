@@ -68,7 +68,7 @@ CONF_GET_REQUEST = endpoints.ResourceContainer(
     websafeConferenceKey=messages.StringField(1),
 )
 
-SESSION_GET_REQUEST = endpoints.ResourceContainer(
+SESSION_GET_REQUEST_BY_TYPE = endpoints.ResourceContainer(
     message_types.VoidMessage,
     typeOfSession=messages.StringField(1),
     websafeConferenceKey=messages.StringField(2),
@@ -480,14 +480,14 @@ class ConferenceApi(remote.Service):
         # return set of SessionForm objects
         return SessionForms(items=[self._copySessionToForm(session) for session in sessions])
 
-    @endpoints.method(SESSION_GET_REQUEST, SessionForms,
+    @endpoints.method(SESSION_GET_REQUEST_BY_TYPE, SessionForms,
                       path='conference/{websafeConferenceKey}/sessions/{typeOfSession}',
                       http_method='GET', name='getConferenceSessionsByType')
     def getConferenceSessionsByType(self, request):
         """Given a conference, return all sessions of a specified type (e.g. lecture, keynote, workshop)."""
         # get the conference key
         web_conf_key = request.websafeConferenceKey
-        # get the type pf session we want
+        # get the type of session we want
         typeOfSession = request.typeOfSession
         # fetch the conference with the target key
         conf = ndb.Key(urlsafe=web_conf_key).get()
@@ -497,9 +497,9 @@ class ConferenceApi(remote.Service):
                 'No conference found with key: %s' % web_conf_key)
         # create ancestor query for all key matches for this conference and
         # type is what we want
-        sessions = Session.query()
+        sessions = Session.query(ancestor=conf.key)
         sessions = sessions.filter(
-            Session.typeOfSession == typeOfSession, Session.websafeConferenceKey == web_conf_key)
+            Session.typeOfSession == typeOfSession)
         # return set of SessionForm objects per Session
         return SessionForms(items=[self._copySessionToForm(session) for session in sessions])
 
