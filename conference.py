@@ -735,12 +735,12 @@ class ConferenceApi(remote.Service):
                 'No conference found with key: %s' % wsck)
 
         # create memcache key based on conf key:
-        memcache_key_ = MEMCACHE_FEATURED_SPEAKER_KEY + str(wsck)
+        memcache_key = MEMCACHE_FEATURED_SPEAKER_KEY + str(wsck)
 
         # try to find entry in memcache:
-        output_ = memcache.get(memcache_key_)
+        output_ = memcache.get(memcache_key)
         if output_:
-            return StringMessage(data=memcache.get(memcache_key_))
+            return StringMessage(data=memcache.get(memcache_key))
         else:
             return StringMessage(
                 data="There are no featured speakers for this conference.")
